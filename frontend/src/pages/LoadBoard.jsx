@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 import Modal from "../components/Modal";
 
@@ -14,18 +15,22 @@ const EMPTY = {
   delivery_date: "",
   notes: "",
   driver_id: "",
+  dispatcher_id: "",
 };
 
 export default function LoadBoard() {
   const [loads, setLoads] = useState([]);
   const [drivers, setDrivers] = useState([]);
+  const [dispatchers, setDispatchers] = useState([]);
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   function load() {
     api.get("/loads").then((res) => setLoads(res.data));
     api.get("/drivers").then((res) => setDrivers(res.data));
+    api.get("/dispatchers").then((res) => setDispatchers(res.data));
   }
 
   useEffect(load, []);
@@ -38,6 +43,7 @@ export default function LoadBoard() {
         ...form,
         rate: form.rate ? Number(form.rate) : null,
         driver_id: form.driver_id ? Number(form.driver_id) : null,
+        dispatcher_id: form.dispatcher_id ? Number(form.dispatcher_id) : null,
       };
       await api.post("/loads", payload);
       setShowAdd(false);
@@ -79,7 +85,7 @@ export default function LoadBoard() {
           </thead>
           <tbody>
             {loads.map((l) => (
-              <tr key={l.id}>
+              <tr key={l.id} className="clickable-row" onClick={() => navigate(`/loads/${l.id}`)}>
                 <td>{l.load_number}</td>
                 <td>
                   <span className={"status-pill status-" + l.status.toLowerCase().replace(/\s/g, "-")}>{l.status}</span>
@@ -96,7 +102,14 @@ export default function LoadBoard() {
                 </td>
                 <td className="notes-cell">{l.notes || "-"}</td>
                 <td>
-                  <button className="btn-icon" title="Archive" onClick={() => handleDelete(l.id)}>
+                  <button
+                    className="btn-icon"
+                    title="Archive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(l.id);
+                    }}
+                  >
                     🗑
                   </button>
                 </td>
@@ -137,6 +150,17 @@ export default function LoadBoard() {
               <select value={form.driver_id} onChange={(e) => setForm({ ...form, driver_id: e.target.value })}>
                 <option value="">Unassigned</option>
                 {drivers.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Dispatcher
+              <select value={form.dispatcher_id} onChange={(e) => setForm({ ...form, dispatcher_id: e.target.value })}>
+                <option value="">Unassigned</option>
+                {dispatchers.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
                   </option>

@@ -3,7 +3,7 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import audit, models, schemas
 from ..database import get_db
 from ..deps import get_current_user
 
@@ -21,10 +21,29 @@ def list_loads(db: Session = Depends(get_db), _=Depends(get_current_user)):
     )
 
 
+@router.get("/{load_id}", response_model=schemas.LoadOut)
+def get_load(load_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    load = (
+        db.query(models.Load)
+        .options(joinedload(models.Load.driver))
+        .filter(models.Load.id == load_id)
+        .first()
+    )
+    if not load:
+        raise HTTPException(status_code=404, detail="Load not found")
+    return load
+
+
 @router.post("", response_model=schemas.LoadOut)
-def create_load(payload: schemas.LoadCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def create_load(
+    payload: schemas.LoadCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     load = models.Load(**payload.model_dump())
     db.add(load)
+    db.flush()
+    audit.record(db, "load", load.id, current_user.username, "created", f"load_number={load.load_number!r}")
     db.commit()
     db.refresh(load)
     return load
@@ -36,12 +55,13 @@ def list_archived_loads(db: Session = Depends(get_db), _=Depends(get_current_use
 
 
 @router.post("/archive/{load_id}/restore", response_model=schemas.LoadOut)
-def restore_load(load_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def restore_load(load_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
     load = db.query(models.Load).filter(models.Load.id == load_id).first()
     if not load:
         raise HTTPException(status_code=404, detail="Load not found")
     load.deleted_at = None
     load.deleted_by = None
+    audit.record(db, "load", load.id, current_user.username, "restored")
     db.commit()
     db.refresh(load)
     return load
@@ -57,12 +77,19 @@ def permanently_delete_load(load_id: int, db: Session = Depends(get_db), _=Depen
 
 
 @router.put("/{load_id}", response_model=schemas.LoadOut)
-def update_load(load_id: int, payload: schemas.LoadCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def update_load(
+    load_id: int,
+    payload: schemas.LoadCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     load = db.query(models.Load).filter(models.Load.id == load_id, models.Load.deleted_at.is_(None)).first()
     if not load:
         raise HTTPException(status_code=404, detail="Load not found")
+    before = {c: getattr(load, c) for c in payload.model_dump().keys()}
     for k, v in payload.model_dump().items():
         setattr(load, k, v)
+    audit.record(db, "load", load.id, current_user.username, "updated", audit.diff_summary(before, payload.model_dump()))
     db.commit()
     db.refresh(load)
     return load
@@ -75,4 +102,5 @@ def delete_load(load_id: int, db: Session = Depends(get_db), current_user: model
         raise HTTPException(status_code=404, detail="Load not found")
     load.deleted_at = datetime.datetime.utcnow()
     load.deleted_by = current_user.username
+    audit.record(db, "load", load.id, current_user.username, "deleted")
     db.commit()

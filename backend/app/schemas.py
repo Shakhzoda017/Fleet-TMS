@@ -50,6 +50,8 @@ class TruckOut(TruckBase):
 class DriverBase(BaseModel):
     name: str
     company: str | None = None
+    phone: str | None = None
+    email: str | None = None
     status: str = "No Status"
     cdl_exp: str | None = None
     mc_exp: str | None = None
@@ -96,6 +98,7 @@ class LoadBase(BaseModel):
     delivery_date: str | None = None
     notes: str | None = None
     driver_id: int | None = None
+    dispatcher_id: int | None = None
 
 
 class LoadCreate(LoadBase):
@@ -107,6 +110,7 @@ class LoadOut(LoadBase):
     id: int
     created_at: datetime.datetime
     driver: DriverOut | None = None
+    dispatcher: DispatcherOut | None = None
 
 
 # ---------- Archive ----------
@@ -115,3 +119,75 @@ class ArchiveEntryOut(BaseModel):
     label: str
     deleted_by: str | None
     deleted_at: datetime.datetime | None
+
+
+# ---------- Notes ----------
+class NoteCreate(BaseModel):
+    entity_type: str
+    entity_id: int
+    text: str
+
+
+class NoteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    entity_type: str
+    entity_id: int
+    author: str
+    text: str
+    created_at: datetime.datetime
+
+
+# ---------- Documents ----------
+class DocumentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    entity_type: str
+    entity_id: int
+    label: str
+    file_path: str
+    original_filename: str
+    number: str | None
+    state: str | None
+    issue_date: str | None
+    exp_date: str | None
+    uploaded_by: str
+    uploaded_at: datetime.datetime
+
+
+# ---------- Audit log ----------
+class AuditLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    entity_type: str
+    entity_id: int
+    staff: str
+    action: str
+    differences: str | None
+    created_at: datetime.datetime
+
+
+# ---------- Driver status history ----------
+class DriverStatusPeriodOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    driver_id: int
+    status: str
+    started_at: datetime.datetime
+    ended_at: datetime.datetime | None
+
+
+# ---------- Financial entries ----------
+class FinancialEntryCreate(BaseModel):
+    driver_id: int
+    kind: str
+    amount: float
+    description: str | None = None
+    entry_date: str | None = None
+
+
+class FinancialEntryOut(FinancialEntryCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_by: str
+    created_at: datetime.datetime

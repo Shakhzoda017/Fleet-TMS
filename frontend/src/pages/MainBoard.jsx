@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 
 const ACTIVE_LOAD_STATUSES = ["Upcoming", "En route", "On hold"];
@@ -6,6 +7,7 @@ const ACTIVE_LOAD_STATUSES = ["Upcoming", "En route", "On hold"];
 export default function MainBoard() {
   const [drivers, setDrivers] = useState([]);
   const [loads, setLoads] = useState([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     api.get("/drivers").then((res) => setDrivers(res.data));
@@ -41,7 +43,7 @@ export default function MainBoard() {
             {drivers.map((d) => {
               const activeLoad = activeLoadFor(d.id);
               return (
-                <tr key={d.id}>
+                <tr key={d.id} className="clickable-row" onClick={() => navigate(`/drivers/${d.id}`)}>
                   <td>{d.name}</td>
                   <td>{d.truck?.truck_number || "-"}</td>
                   <td>

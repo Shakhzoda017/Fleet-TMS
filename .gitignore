@@ -3,6 +3,7 @@ backend/__pycache__/
 backend/app/__pycache__/
 backend/app/routers/__pycache__/
 backend/tms.db
+backend/uploads/
 frontend/node_modules/
 frontend/dist/
 *.log

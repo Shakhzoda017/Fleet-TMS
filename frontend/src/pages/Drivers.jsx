@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import api from "../api";
 import Modal from "../components/Modal";
 
@@ -18,6 +19,8 @@ const STATUSES = [
 const EMPTY = {
   name: "",
   company: "",
+  phone: "",
+  email: "",
   status: "No Status",
   cdl_exp: "",
   mc_exp: "",
@@ -32,6 +35,7 @@ export default function Drivers() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
+  const navigate = useNavigate();
 
   function load() {
     api.get("/drivers").then((res) => setDrivers(res.data));
@@ -86,7 +90,7 @@ export default function Drivers() {
           </thead>
           <tbody>
             {drivers.map((d) => (
-              <tr key={d.id}>
+              <tr key={d.id} className="clickable-row" onClick={() => navigate(`/drivers/${d.id}`)}>
                 <td>{d.name}</td>
                 <td>{d.truck?.truck_number || "No Truck"}</td>
                 <td>
@@ -98,7 +102,14 @@ export default function Drivers() {
                 <td>{d.current_location || "-"}</td>
                 <td className="notes-cell">{d.notes || "-"}</td>
                 <td>
-                  <button className="btn-icon" title="Archive" onClick={() => handleDelete(d.id)}>
+                  <button
+                    className="btn-icon"
+                    title="Archive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(d.id);
+                    }}
+                  >
                     🗑
                   </button>
                 </td>
@@ -125,6 +136,14 @@ export default function Drivers() {
             <label>
               Company
               <input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+            </label>
+            <label>
+              Phone
+              <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+            </label>
+            <label>
+              Email
+              <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
             </label>
             <label>
               Status

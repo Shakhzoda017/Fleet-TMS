@@ -3,7 +3,7 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from .. import models, schemas
+from .. import audit, models, schemas
 from ..database import get_db
 from ..deps import get_current_user
 
@@ -20,10 +20,30 @@ def list_drivers(db: Session = Depends(get_db), _=Depends(get_current_user)):
     )
 
 
+@router.get("/{driver_id}", response_model=schemas.DriverOut)
+def get_driver(driver_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    driver = (
+        db.query(models.Driver)
+        .options(joinedload(models.Driver.truck))
+        .filter(models.Driver.id == driver_id)
+        .first()
+    )
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    return driver
+
+
 @router.post("", response_model=schemas.DriverOut)
-def create_driver(payload: schemas.DriverCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def create_driver(
+    payload: schemas.DriverCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     driver = models.Driver(**payload.model_dump())
     db.add(driver)
+    db.flush()
+    db.add(models.DriverStatusPeriod(driver_id=driver.id, status=driver.status))
+    audit.record(db, "driver", driver.id, current_user.username, "created", f"name={driver.name!r}")
     db.commit()
     db.refresh(driver)
     return driver
@@ -35,12 +55,15 @@ def list_archived_drivers(db: Session = Depends(get_db), _=Depends(get_current_u
 
 
 @router.post("/archive/{driver_id}/restore", response_model=schemas.DriverOut)
-def restore_driver(driver_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def restore_driver(
+    driver_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)
+):
     driver = db.query(models.Driver).filter(models.Driver.id == driver_id).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
     driver.deleted_at = None
     driver.deleted_by = None
+    audit.record(db, "driver", driver.id, current_user.username, "restored")
     db.commit()
     db.refresh(driver)
     return driver
@@ -55,13 +78,45 @@ def permanently_delete_driver(driver_id: int, db: Session = Depends(get_db), _=D
     db.commit()
 
 
+@router.get("/{driver_id}/status-history", response_model=list[schemas.DriverStatusPeriodOut])
+def driver_status_history(driver_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return (
+        db.query(models.DriverStatusPeriod)
+        .filter(models.DriverStatusPeriod.driver_id == driver_id)
+        .order_by(models.DriverStatusPeriod.started_at.desc())
+        .all()
+    )
+
+
 @router.put("/{driver_id}", response_model=schemas.DriverOut)
-def update_driver(driver_id: int, payload: schemas.DriverCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+def update_driver(
+    driver_id: int,
+    payload: schemas.DriverCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
     driver = db.query(models.Driver).filter(models.Driver.id == driver_id, models.Driver.deleted_at.is_(None)).first()
     if not driver:
         raise HTTPException(status_code=404, detail="Driver not found")
+
+    before = {c: getattr(driver, c) for c in payload.model_dump().keys()}
+    status_changed = payload.status != driver.status
+
     for k, v in payload.model_dump().items():
         setattr(driver, k, v)
+
+    if status_changed:
+        now = datetime.datetime.utcnow()
+        open_period = (
+            db.query(models.DriverStatusPeriod)
+            .filter(models.DriverStatusPeriod.driver_id == driver.id, models.DriverStatusPeriod.ended_at.is_(None))
+            .first()
+        )
+        if open_period:
+            open_period.ended_at = now
+        db.add(models.DriverStatusPeriod(driver_id=driver.id, status=driver.status, started_at=now))
+
+    audit.record(db, "driver", driver.id, current_user.username, "updated", audit.diff_summary(before, payload.model_dump()))
     db.commit()
     db.refresh(driver)
     return driver
@@ -74,4 +129,5 @@ def delete_driver(driver_id: int, db: Session = Depends(get_db), current_user: m
         raise HTTPException(status_code=404, detail="Driver not found")
     driver.deleted_at = datetime.datetime.utcnow()
     driver.deleted_by = current_user.username
+    audit.record(db, "driver", driver.id, current_user.username, "deleted")
     db.commit()
