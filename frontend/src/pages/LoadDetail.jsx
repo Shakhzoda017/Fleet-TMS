@@ -4,6 +4,8 @@ import api from "../api";
 import NotesTab from "../components/detail/NotesTab";
 import LogTab from "../components/detail/LogTab";
 import DocumentsTab from "../components/detail/DocumentsTab";
+import StatusChangeModal from "../components/StatusChangeModal";
+import { LOAD_STATUSES } from "../constants";
 
 const DOC_LABELS = ["RC", "BOL", "POD", "Invoice"];
 
@@ -19,9 +21,14 @@ export default function LoadDetail() {
   const [load, setLoad] = useState(null);
   const [createdInfo, setCreatedInfo] = useState(null);
   const [tab, setTab] = useState("documents");
+  const [showStatusModal, setShowStatusModal] = useState(false);
+
+  function loadLoad() {
+    api.get(`/loads/${loadId}`).then((res) => setLoad(res.data));
+  }
 
   useEffect(() => {
-    api.get(`/loads/${loadId}`).then((res) => setLoad(res.data));
+    loadLoad();
     api.get("/audit-log", { params: { entity_type: "load", entity_id: loadId } }).then((res) => {
       const created = res.data.find((e) => e.action === "created");
       if (created) setCreatedInfo(created);
@@ -47,8 +54,26 @@ export default function LoadDetail() {
         </div>
 
         <div className="side-card">
-          <span className={"status-pill status-" + load.status.toLowerCase().replace(/\s/g, "-")}>{load.status}</span>
+          <button
+            className={"status-pill status-clickable status-" + load.status.toLowerCase().replace(/\s/g, "-")}
+            onClick={() => setShowStatusModal(true)}
+          >
+            {load.status}
+          </button>
         </div>
+
+        {showStatusModal && (
+          <StatusChangeModal
+            title="Change Load Status"
+            current={load.status}
+            options={LOAD_STATUSES}
+            onClose={() => setShowStatusModal(false)}
+            onSave={async (newStatus) => {
+              await api.patch(`/loads/${loadId}/status`, { status: newStatus });
+              loadLoad();
+            }}
+          />
+        )}
 
         <div className="side-card">
           <div className="side-row">

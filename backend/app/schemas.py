@@ -15,6 +15,7 @@ class UserOut(BaseModel):
     username: str
     full_name: str
     role: str
+    is_active: bool
 
 
 class UserCreate(BaseModel):
@@ -22,6 +23,11 @@ class UserCreate(BaseModel):
     full_name: str = ""
     role: str = "dispatcher"
     password: str
+
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
 
 
 # ---------- Truck ----------
@@ -91,7 +97,11 @@ class DispatcherOut(DispatcherBase):
 class LoadBase(BaseModel):
     load_number: str
     status: str = "Upcoming"
+    payment_status: str = "Unpaid"
     rate: float | None = None
+    broker: str | None = None
+    dh_miles: float | None = None
+    trip_miles: float | None = None
     pickup_location: str | None = None
     pickup_date: str | None = None
     delivery_location: str | None = None
@@ -103,6 +113,10 @@ class LoadBase(BaseModel):
 
 class LoadCreate(LoadBase):
     pass
+
+
+class StatusUpdate(BaseModel):
+    status: str
 
 
 class LoadOut(LoadBase):

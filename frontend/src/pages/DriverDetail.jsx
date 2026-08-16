@@ -6,6 +6,8 @@ import LogTab from "../components/detail/LogTab";
 import DocumentsTab from "../components/detail/DocumentsTab";
 import FinancialTab from "../components/detail/FinancialTab";
 import StatusCalendarTab from "../components/detail/StatusCalendarTab";
+import StatusChangeModal from "../components/StatusChangeModal";
+import { DRIVER_STATUSES } from "../constants";
 
 const DOC_LABELS = ["CDL", "Med card", "Agreement"];
 
@@ -29,9 +31,14 @@ export default function DriverDetail() {
   const [loads, setLoads] = useState([]);
   const [createdInfo, setCreatedInfo] = useState(null);
   const [tab, setTab] = useState("documents");
+  const [showStatusModal, setShowStatusModal] = useState(false);
+
+  function loadDriver() {
+    api.get(`/drivers/${driverId}`).then((res) => setDriver(res.data));
+  }
 
   useEffect(() => {
-    api.get(`/drivers/${driverId}`).then((res) => setDriver(res.data));
+    loadDriver();
     api.get("/loads").then((res) => setLoads(res.data.filter((l) => l.driver_id === driverId)));
     api.get("/audit-log", { params: { entity_type: "driver", entity_id: driverId } }).then((res) => {
       const created = res.data.find((e) => e.action === "created");
@@ -60,8 +67,23 @@ export default function DriverDetail() {
         </div>
 
         <div className="side-card">
-          <span className="status-pill">{driver.status}</span>
+          <button className="status-pill status-clickable" onClick={() => setShowStatusModal(true)}>
+            {driver.status}
+          </button>
         </div>
+
+        {showStatusModal && (
+          <StatusChangeModal
+            title={`Change Driver Status for ${driver.name}`}
+            current={driver.status}
+            options={DRIVER_STATUSES}
+            onClose={() => setShowStatusModal(false)}
+            onSave={async (newStatus) => {
+              await api.patch(`/drivers/${driverId}/status`, { status: newStatus });
+              loadDriver();
+            }}
+          />
+        )}
 
         <div className="side-card">
           <div className="side-row">

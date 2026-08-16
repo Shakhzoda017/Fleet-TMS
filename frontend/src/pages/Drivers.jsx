@@ -2,19 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import Modal from "../components/Modal";
-
-const STATUSES = [
-  "No Status",
-  "Ready",
-  "PU",
-  "PU checked in",
-  "En Route",
-  "Unloading",
-  "Home",
-  "Hold",
-  "Sleeping",
-  "OOS",
-];
+import StatusChangeModal from "../components/StatusChangeModal";
+import { DRIVER_STATUSES } from "../constants";
 
 const EMPTY = {
   name: "",
@@ -35,6 +24,7 @@ export default function Drivers() {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
+  const [statusModalDriver, setStatusModalDriver] = useState(null);
   const navigate = useNavigate();
 
   function load() {
@@ -94,7 +84,15 @@ export default function Drivers() {
                 <td>{d.name}</td>
                 <td>{d.truck?.truck_number || "No Truck"}</td>
                 <td>
-                  <span className="status-pill">{d.status}</span>
+                  <button
+                    className="status-pill status-clickable"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setStatusModalDriver(d);
+                    }}
+                  >
+                    {d.status}
+                  </button>
                 </td>
                 <td>{d.company || "-"}</td>
                 <td>{d.cdl_exp || "-"}</td>
@@ -126,6 +124,19 @@ export default function Drivers() {
         </table>
       </div>
 
+      {statusModalDriver && (
+        <StatusChangeModal
+          title={`Change Driver Status for ${statusModalDriver.name}`}
+          current={statusModalDriver.status}
+          options={DRIVER_STATUSES}
+          onClose={() => setStatusModalDriver(null)}
+          onSave={async (newStatus) => {
+            await api.patch(`/drivers/${statusModalDriver.id}/status`, { status: newStatus });
+            load();
+          }}
+        />
+      )}
+
       {showAdd && (
         <Modal title="Add driver" onClose={() => setShowAdd(false)}>
           <form onSubmit={handleAdd} className="form-grid">
@@ -148,7 +159,7 @@ export default function Drivers() {
             <label>
               Status
               <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                {STATUSES.map((s) => (
+                {DRIVER_STATUSES.map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>

@@ -17,6 +17,18 @@ ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".heic"}
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
 
 
+@router.get("/summary")
+def documents_summary(entity_type: str, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    """Lightweight (entity_id, label) pairs for a whole entity type, so list
+    views can show a has-document indicator without an N+1 request per row."""
+    rows = (
+        db.query(models.Document.entity_id, models.Document.label)
+        .filter(models.Document.entity_type == entity_type)
+        .all()
+    )
+    return [{"entity_id": r[0], "label": r[1]} for r in rows]
+
+
 @router.get("", response_model=list[schemas.DocumentOut])
 def list_documents(entity_type: str, entity_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     return (

@@ -19,6 +19,21 @@
   --sans: "Segoe UI", Roboto, -apple-system, BlinkMacSystemFont, Arial, sans-serif;
 }
 
+:root[data-theme="dark"] {
+  --ink: #0f1524;
+  --sidebar: #0f1524;
+  --sidebar-hover: #1b2438;
+  --paper: #12182a;
+  --card: #1a2236;
+  --border: #2a3450;
+  --text: #e6e9f2;
+  --muted: #8b93ac;
+  --gray-bg: #232c45;
+  --green-bg: #143627;
+  --red-bg: #3a1c22;
+  --yellow-bg: #3a3018;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -111,11 +126,75 @@ textarea {
   padding: 0 24px;
 }
 
+.summary-bar {
+  display: flex;
+  gap: 20px;
+}
+
+.summary-item {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.summary-item b {
+  color: var(--text);
+  margin-right: 4px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.theme-toggle {
+  font-size: 16px;
+}
+
+.user-menu-wrap {
+  position: relative;
+}
+
 .user-chip {
   display: flex;
   align-items: center;
   gap: 10px;
   font-size: 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  padding: 6px 4px;
+}
+
+.user-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  min-width: 160px;
+  overflow: hidden;
+  z-index: 30;
+}
+
+.user-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 13.5px;
+}
+
+.user-menu-item:hover {
+  background: var(--paper);
 }
 
 .role-badge {
@@ -254,6 +333,23 @@ tr:last-child td {
   font-weight: 600;
   background: var(--gray-bg);
   color: var(--muted);
+  border: none;
+  font-family: inherit;
+}
+
+.status-pill.status-clickable {
+  cursor: pointer;
+}
+
+.status-pill.status-clickable:hover {
+  filter: brightness(0.95);
+  outline: 1px solid currentColor;
+}
+
+.doc-check {
+  text-align: center;
+  font-weight: 700;
+  color: var(--green);
 }
 
 .status-rolling,
@@ -701,4 +797,75 @@ tr:last-child td {
   .detail-page {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- status change modal ---------- */
+.status-search {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  margin-bottom: 12px;
+}
+
+.status-option-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+
+.status-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  background: var(--paper);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 11px 14px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.status-option:hover {
+  border-color: var(--border);
+}
+
+.status-option.selected {
+  border-color: var(--accent);
+  background: var(--card);
+}
+
+.status-option-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+
+.status-modal-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.status-modal-actions .btn-ghost,
+.status-modal-actions .btn-primary {
+  flex: 1;
+  text-align: center;
+}
+
+.form-success {
+  color: var(--green);
+  font-size: 13px;
 }

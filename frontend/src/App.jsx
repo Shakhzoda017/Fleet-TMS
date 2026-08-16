@@ -10,11 +10,19 @@ import Trucks from "./pages/Trucks";
 import Dispatchers from "./pages/Dispatchers";
 import Archive from "./pages/Archive";
 import LoadDetail from "./pages/LoadDetail";
+import Users from "./pages/Users";
+import Profile from "./pages/Profile";
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
   if (loading) return <div className="center-loading">Loading...</div>;
   if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function AdminRoute({ children }) {
+  const { user } = useAuth();
+  if (user?.role !== "admin") return <Navigate to="/loads" replace />;
   return children;
 }
 
@@ -39,6 +47,15 @@ export default function App() {
         <Route path="trucks" element={<Trucks />} />
         <Route path="dispatchers" element={<Dispatchers />} />
         <Route path="archive" element={<Archive />} />
+        <Route path="profile" element={<Profile />} />
+        <Route
+          path="users"
+          element={
+            <AdminRoute>
+              <Users />
+            </AdminRoute>
+          }
+        />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

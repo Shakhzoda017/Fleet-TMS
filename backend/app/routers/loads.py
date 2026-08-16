@@ -76,6 +76,24 @@ def permanently_delete_load(load_id: int, db: Session = Depends(get_db), _=Depen
     db.commit()
 
 
+@router.patch("/{load_id}/status", response_model=schemas.LoadOut)
+def update_load_status(
+    load_id: int,
+    payload: schemas.StatusUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    load = db.query(models.Load).filter(models.Load.id == load_id, models.Load.deleted_at.is_(None)).first()
+    if not load:
+        raise HTTPException(status_code=404, detail="Load not found")
+    old_status = load.status
+    load.status = payload.status
+    audit.record(db, "load", load.id, current_user.username, "updated", f"status: {old_status!r} -> {payload.status!r}")
+    db.commit()
+    db.refresh(load)
+    return load
+
+
 @router.put("/{load_id}", response_model=schemas.LoadOut)
 def update_load(
     load_id: int,
