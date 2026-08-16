@@ -1,6 +1,6 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import models
@@ -42,18 +42,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router)
-app.include_router(trucks.router)
-app.include_router(drivers.router)
-app.include_router(dispatchers.router)
-app.include_router(loads.router)
-app.include_router(notes.router)
-app.include_router(documents.router)
-app.include_router(audit_log.router)
-app.include_router(financials.router)
-app.include_router(users.router)
+# Every route lives under /api - the deployed frontend and backend share one
+# Vercel domain, and its rewrite rule sends /api/* to this service while
+# everything else goes to the frontend. Locally this just means the frontend
+# dev config also points at http://127.0.0.1:8000/api.
+api = APIRouter(prefix="/api")
+api.include_router(auth.router)
+api.include_router(trucks.router)
+api.include_router(drivers.router)
+api.include_router(dispatchers.router)
+api.include_router(loads.router)
+api.include_router(notes.router)
+api.include_router(documents.router)
+api.include_router(audit_log.router)
+api.include_router(financials.router)
+api.include_router(users.router)
 
 
-@app.get("/health")
+@api.get("/health")
 def health():
     return {"status": "ok"}
+
+
+app.include_router(api)

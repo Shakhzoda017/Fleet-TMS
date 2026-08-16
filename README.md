@@ -32,7 +32,7 @@ user (`admin` / `admin123`) is seeded automatically on first run.
 npm install
 npm run dev
 ```
-Runs on http://localhost:5173 and talks to `http://127.0.0.1:8000` by
+Runs on http://localhost:5173 and talks to `http://127.0.0.1:8000/api` by
 default (override with a `VITE_API_BASE_URL` env var — see `.env.example`).
 
 ## Current features
@@ -54,21 +54,25 @@ default (override with a `VITE_API_BASE_URL` env var — see `.env.example`).
 - Profile page with a change-password form
 - Light/dark theme toggle
 
-## Deploying (free tier: Neon + Render + Vercel)
+## Deploying (free tier: Neon + Vercel)
+
+Vercel's multi-service support hosts both the frontend and backend as one
+project on one domain — the root `vercel.json` routes `/api/*` to the
+FastAPI backend and everything else to the React frontend, so there's no
+separate backend host needed and no CORS to worry about in production
+(same origin).
 
 1. **Database — [Neon](https://neon.tech)**: create a free Postgres project,
    copy its connection string (`postgresql://...`).
-2. **Backend — [Render](https://render.com)**: new Web Service from this
-   repo, root directory `backend` (or use the included `render.yaml`
-   blueprint). Set these environment variables:
+2. **Vercel**: new project from this repo. It auto-detects the two services
+   (`frontend` = Vite, `backend` = FastAPI) via `vercel.json`. Set these
+   environment variables on the **backend** service:
    - `DATABASE_URL` — the Neon connection string
-   - `TMS_SECRET_KEY` — any long random string (Render can auto-generate one)
+   - `TMS_SECRET_KEY` — any long random string
    - `TMS_ADMIN_USERNAME` / `TMS_ADMIN_PASSWORD` — **change from the defaults**
-   - `CORS_ORIGINS` — your Vercel frontend URL, once you have it
-3. **Frontend — [Vercel](https://vercel.com)**: new project from this repo,
-   root directory `frontend`. Set `VITE_API_BASE_URL` to your Render backend
-   URL. The included `vercel.json` handles client-side routing so refreshing
-   a page like `/drivers/12` doesn't 404.
+
+   And on the **frontend** service:
+   - `VITE_API_BASE_URL` — `/api` (relative — same domain as the backend)
 
 Note: pushing this repo to GitHub only syncs code. The database lives on
 Neon (or wherever `DATABASE_URL` points), not in git — that's intentional,
