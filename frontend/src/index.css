@@ -560,6 +560,23 @@ tr:last-child td {
   font-size: 17px;
 }
 
+.side-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.side-card-head h3 {
+  margin: 0;
+}
+
+.row-actions {
+  display: flex;
+  gap: 4px;
+  white-space: nowrap;
+}
+
 .side-line {
   font-size: 13.5px;
   color: var(--text);

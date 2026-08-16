@@ -16,10 +16,24 @@ const EMPTY = {
   notes: "",
 };
 
+function toFormValues(t) {
+  return {
+    truck_number: t.truck_number,
+    status: t.status,
+    dot_exp_date: t.dot_exp_date ?? "",
+    cc_exp_date: t.cc_exp_date ?? "",
+    current_location: t.current_location ?? "",
+    fuel_percent: t.fuel_percent ?? "",
+    year: t.year ?? "",
+    make: t.make ?? "",
+    notes: t.notes ?? "",
+  };
+}
+
 export default function Trucks() {
   const [trucks, setTrucks] = useState([]);
   const [driverByTruckId, setDriverByTruckId] = useState({});
-  const [showAdd, setShowAdd] = useState(false);
+  const [editingTruck, setEditingTruck] = useState(null); // null | "new" | truck object
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
 
@@ -36,7 +50,19 @@ export default function Trucks() {
 
   useEffect(load, []);
 
-  async function handleAdd(e) {
+  function openAdd() {
+    setForm(EMPTY);
+    setError("");
+    setEditingTruck("new");
+  }
+
+  function openEdit(t) {
+    setForm(toFormValues(t));
+    setError("");
+    setEditingTruck(t);
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     try {
@@ -45,12 +71,15 @@ export default function Trucks() {
         year: form.year ? Number(form.year) : null,
         fuel_percent: form.fuel_percent ? Number(form.fuel_percent) : null,
       };
-      await api.post("/trucks", payload);
-      setShowAdd(false);
-      setForm(EMPTY);
+      if (editingTruck === "new") {
+        await api.post("/trucks", payload);
+      } else {
+        await api.put(`/trucks/${editingTruck.id}`, payload);
+      }
+      setEditingTruck(null);
       load();
     } catch {
-      setError("Could not add truck — check the fields and try again.");
+      setError("Could not save truck — check the fields and try again.");
     }
   }
 
@@ -64,7 +93,7 @@ export default function Trucks() {
     <div>
       <div className="page-head">
         <h2>Trucks</h2>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn-primary" onClick={openAdd}>
           + Add truck
         </button>
       </div>
@@ -101,7 +130,10 @@ export default function Trucks() {
                 <td>{t.year || "-"}</td>
                 <td>{t.make || "-"}</td>
                 <td className="notes-cell">{t.notes || "-"}</td>
-                <td>
+                <td className="row-actions">
+                  <button className="btn-icon" title="Edit" onClick={() => openEdit(t)}>
+                    ✎
+                  </button>
                   <button className="btn-icon" title="Archive" onClick={() => handleDelete(t.id)}>
                     🗑
                   </button>
@@ -119,9 +151,9 @@ export default function Trucks() {
         </table>
       </div>
 
-      {showAdd && (
-        <Modal title="Add truck" onClose={() => setShowAdd(false)}>
-          <form onSubmit={handleAdd} className="form-grid">
+      {editingTruck && (
+        <Modal title={editingTruck === "new" ? "Add truck" : `Edit truck #${editingTruck.truck_number}`} onClose={() => setEditingTruck(null)}>
+          <form onSubmit={handleSubmit} className="form-grid">
             <label>
               Truck #
               <input required value={form.truck_number} onChange={(e) => setForm({ ...form, truck_number: e.target.value })} />
@@ -164,7 +196,7 @@ export default function Trucks() {
             </label>
             {error && <div className="form-error span-2">{error}</div>}
             <button className="btn-primary span-2" type="submit">
-              Add truck
+              {editingTruck === "new" ? "Add truck" : "Save changes"}
             </button>
           </form>
         </Modal>

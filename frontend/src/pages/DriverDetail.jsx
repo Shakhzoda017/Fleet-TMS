@@ -7,7 +7,23 @@ import DocumentsTab from "../components/detail/DocumentsTab";
 import FinancialTab from "../components/detail/FinancialTab";
 import StatusCalendarTab from "../components/detail/StatusCalendarTab";
 import StatusChangeModal from "../components/StatusChangeModal";
+import Modal from "../components/Modal";
 import { DRIVER_STATUSES } from "../constants";
+
+function toFormValues(d) {
+  return {
+    name: d.name,
+    company: d.company ?? "",
+    phone: d.phone ?? "",
+    email: d.email ?? "",
+    status: d.status,
+    cdl_exp: d.cdl_exp ?? "",
+    mc_exp: d.mc_exp ?? "",
+    current_location: d.current_location ?? "",
+    notes: d.notes ?? "",
+    truck_id: d.truck_id ?? "",
+  };
+}
 
 const DOC_LABELS = ["CDL", "Med card", "Agreement"];
 
@@ -29,9 +45,13 @@ export default function DriverDetail() {
   const driverId = Number(id);
   const [driver, setDriver] = useState(null);
   const [loads, setLoads] = useState([]);
+  const [trucks, setTrucks] = useState([]);
   const [createdInfo, setCreatedInfo] = useState(null);
   const [tab, setTab] = useState("documents");
   const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [form, setForm] = useState(null);
+  const [editError, setEditError] = useState("");
 
   function loadDriver() {
     api.get(`/drivers/${driverId}`).then((res) => setDriver(res.data));
@@ -40,11 +60,31 @@ export default function DriverDetail() {
   useEffect(() => {
     loadDriver();
     api.get("/loads").then((res) => setLoads(res.data.filter((l) => l.driver_id === driverId)));
+    api.get("/trucks").then((res) => setTrucks(res.data));
     api.get("/audit-log", { params: { entity_type: "driver", entity_id: driverId } }).then((res) => {
       const created = res.data.find((e) => e.action === "created");
       if (created) setCreatedInfo(created);
     });
   }, [driverId]);
+
+  function openEdit() {
+    setForm(toFormValues(driver));
+    setEditError("");
+    setShowEditModal(true);
+  }
+
+  async function handleEditSubmit(e) {
+    e.preventDefault();
+    setEditError("");
+    try {
+      const payload = { ...form, truck_id: form.truck_id ? Number(form.truck_id) : null };
+      await api.put(`/drivers/${driverId}`, payload);
+      setShowEditModal(false);
+      loadDriver();
+    } catch {
+      setEditError("Could not save changes — check the fields and try again.");
+    }
+  }
 
   if (!driver) return <div className="center-loading">Loading...</div>;
 
@@ -56,7 +96,12 @@ export default function DriverDetail() {
         </Link>
 
         <div className="side-card">
-          <h3>{driver.name}</h3>
+          <div className="side-card-head">
+            <h3>{driver.name}</h3>
+            <button className="btn-icon" title="Edit driver" onClick={openEdit}>
+              ✎
+            </button>
+          </div>
           {driver.phone && <div className="side-line">{driver.phone}</div>}
           {driver.email && <div className="side-line">{driver.email}</div>}
           {createdInfo && (
@@ -65,6 +110,68 @@ export default function DriverDetail() {
             </div>
           )}
         </div>
+
+        {showEditModal && form && (
+          <Modal title={`Edit driver: ${driver.name}`} onClose={() => setShowEditModal(false)}>
+            <form onSubmit={handleEditSubmit} className="form-grid">
+              <label>
+                Name
+                <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </label>
+              <label>
+                Company
+                <input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+              </label>
+              <label>
+                Phone
+                <input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </label>
+              <label>
+                Email
+                <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              </label>
+              <label>
+                Status
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                  {DRIVER_STATUSES.map((s) => (
+                    <option key={s}>{s}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Truck
+                <select value={form.truck_id} onChange={(e) => setForm({ ...form, truck_id: e.target.value })}>
+                  <option value="">No Truck</option>
+                  {trucks.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.truck_number}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                CDL Exp
+                <input placeholder="MM.DD.YYYY" value={form.cdl_exp} onChange={(e) => setForm({ ...form, cdl_exp: e.target.value })} />
+              </label>
+              <label>
+                MC Exp
+                <input placeholder="MM.DD.YYYY" value={form.mc_exp} onChange={(e) => setForm({ ...form, mc_exp: e.target.value })} />
+              </label>
+              <label className="span-2">
+                Current location
+                <input value={form.current_location} onChange={(e) => setForm({ ...form, current_location: e.target.value })} />
+              </label>
+              <label className="span-2">
+                Notes
+                <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+              </label>
+              {editError && <div className="form-error span-2">{editError}</div>}
+              <button className="btn-primary span-2" type="submit">
+                Save changes
+              </button>
+            </form>
+          </Modal>
+        )}
 
         <div className="side-card">
           <button className="status-pill status-clickable" onClick={() => setShowStatusModal(true)}>

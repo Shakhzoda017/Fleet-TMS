@@ -22,12 +22,31 @@ const EMPTY = {
   dispatcher_id: "",
 };
 
+function toFormValues(l) {
+  return {
+    load_number: l.load_number,
+    status: l.status,
+    payment_status: l.payment_status,
+    rate: l.rate ?? "",
+    broker: l.broker ?? "",
+    dh_miles: l.dh_miles ?? "",
+    trip_miles: l.trip_miles ?? "",
+    pickup_location: l.pickup_location ?? "",
+    pickup_date: l.pickup_date ?? "",
+    delivery_location: l.delivery_location ?? "",
+    delivery_date: l.delivery_date ?? "",
+    notes: l.notes ?? "",
+    driver_id: l.driver_id ?? "",
+    dispatcher_id: l.dispatcher_id ?? "",
+  };
+}
+
 export default function LoadBoard() {
   const [loads, setLoads] = useState([]);
   const [drivers, setDrivers] = useState([]);
   const [dispatchers, setDispatchers] = useState([]);
   const [docSummary, setDocSummary] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [editingLoad, setEditingLoad] = useState(null); // null | "new" | load object
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [statusModalLoad, setStatusModalLoad] = useState(null);
@@ -42,7 +61,19 @@ export default function LoadBoard() {
 
   useEffect(load, []);
 
-  async function handleAdd(e) {
+  function openAdd() {
+    setForm(EMPTY);
+    setError("");
+    setEditingLoad("new");
+  }
+
+  function openEdit(l) {
+    setForm(toFormValues(l));
+    setError("");
+    setEditingLoad(l);
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     try {
@@ -54,12 +85,15 @@ export default function LoadBoard() {
         driver_id: form.driver_id ? Number(form.driver_id) : null,
         dispatcher_id: form.dispatcher_id ? Number(form.dispatcher_id) : null,
       };
-      await api.post("/loads", payload);
-      setShowAdd(false);
-      setForm(EMPTY);
+      if (editingLoad === "new") {
+        await api.post("/loads", payload);
+      } else {
+        await api.put(`/loads/${editingLoad.id}`, payload);
+      }
+      setEditingLoad(null);
       load();
     } catch {
-      setError("Could not add load — check the fields and try again (load # must be unique).");
+      setError("Could not save load — check the fields and try again (load # must be unique).");
     }
   }
 
@@ -77,7 +111,7 @@ export default function LoadBoard() {
     <div>
       <div className="page-head">
         <h2>Load Board</h2>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn-primary" onClick={openAdd}>
           + Add load
         </button>
       </div>
@@ -143,12 +177,11 @@ export default function LoadBoard() {
                   <td>{l.dispatcher?.name || "-"}</td>
                   <td>{l.pickup_location || "-"}</td>
                   <td>{l.delivery_location || "-"}</td>
-                  <td>
-                    <button
-                      className="btn-icon"
-                      title="Archive"
-                      onClick={() => handleDelete(l.id)}
-                    >
+                  <td className="row-actions">
+                    <button className="btn-icon" title="Edit" onClick={() => openEdit(l)}>
+                      ✎
+                    </button>
+                    <button className="btn-icon" title="Archive" onClick={() => handleDelete(l.id)}>
                       🗑
                     </button>
                   </td>
@@ -179,9 +212,9 @@ export default function LoadBoard() {
         />
       )}
 
-      {showAdd && (
-        <Modal title="Add load" onClose={() => setShowAdd(false)}>
-          <form onSubmit={handleAdd} className="form-grid">
+      {editingLoad && (
+        <Modal title={editingLoad === "new" ? "Add load" : `Edit load #${editingLoad.load_number}`} onClose={() => setEditingLoad(null)}>
+          <form onSubmit={handleSubmit} className="form-grid">
             <label>
               Load #
               <input required value={form.load_number} onChange={(e) => setForm({ ...form, load_number: e.target.value })} />
@@ -262,7 +295,7 @@ export default function LoadBoard() {
             </label>
             {error && <div className="form-error span-2">{error}</div>}
             <button className="btn-primary span-2" type="submit">
-              Add load
+              {editingLoad === "new" ? "Add load" : "Save changes"}
             </button>
           </form>
         </Modal>

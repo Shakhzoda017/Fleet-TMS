@@ -4,9 +4,18 @@ import Modal from "../components/Modal";
 
 const EMPTY = { name: "", phone: "", email: "", notes: "" };
 
+function toFormValues(d) {
+  return {
+    name: d.name,
+    phone: d.phone ?? "",
+    email: d.email ?? "",
+    notes: d.notes ?? "",
+  };
+}
+
 export default function Dispatchers() {
   const [dispatchers, setDispatchers] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [editingDispatcher, setEditingDispatcher] = useState(null); // null | "new" | dispatcher object
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
 
@@ -16,16 +25,31 @@ export default function Dispatchers() {
 
   useEffect(load, []);
 
-  async function handleAdd(e) {
+  function openAdd() {
+    setForm(EMPTY);
+    setError("");
+    setEditingDispatcher("new");
+  }
+
+  function openEdit(d) {
+    setForm(toFormValues(d));
+    setError("");
+    setEditingDispatcher(d);
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     try {
-      await api.post("/dispatchers", form);
-      setShowAdd(false);
-      setForm(EMPTY);
+      if (editingDispatcher === "new") {
+        await api.post("/dispatchers", form);
+      } else {
+        await api.put(`/dispatchers/${editingDispatcher.id}`, form);
+      }
+      setEditingDispatcher(null);
       load();
     } catch {
-      setError("Could not add dispatcher — check the fields and try again.");
+      setError("Could not save dispatcher — check the fields and try again.");
     }
   }
 
@@ -39,7 +63,7 @@ export default function Dispatchers() {
     <div>
       <div className="page-head">
         <h2>Dispatchers</h2>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn-primary" onClick={openAdd}>
           + Add dispatcher
         </button>
       </div>
@@ -62,7 +86,10 @@ export default function Dispatchers() {
                 <td>{d.phone || "-"}</td>
                 <td>{d.email || "-"}</td>
                 <td className="notes-cell">{d.notes || "-"}</td>
-                <td>
+                <td className="row-actions">
+                  <button className="btn-icon" title="Edit" onClick={() => openEdit(d)}>
+                    ✎
+                  </button>
                   <button className="btn-icon" title="Archive" onClick={() => handleDelete(d.id)}>
                     🗑
                   </button>
@@ -80,9 +107,9 @@ export default function Dispatchers() {
         </table>
       </div>
 
-      {showAdd && (
-        <Modal title="Add dispatcher" onClose={() => setShowAdd(false)}>
-          <form onSubmit={handleAdd} className="form-grid">
+      {editingDispatcher && (
+        <Modal title={editingDispatcher === "new" ? "Add dispatcher" : `Edit dispatcher: ${editingDispatcher.name}`} onClose={() => setEditingDispatcher(null)}>
+          <form onSubmit={handleSubmit} className="form-grid">
             <label className="span-2">
               Name
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -101,7 +128,7 @@ export default function Dispatchers() {
             </label>
             {error && <div className="form-error span-2">{error}</div>}
             <button className="btn-primary span-2" type="submit">
-              Add dispatcher
+              {editingDispatcher === "new" ? "Add dispatcher" : "Save changes"}
             </button>
           </form>
         </Modal>

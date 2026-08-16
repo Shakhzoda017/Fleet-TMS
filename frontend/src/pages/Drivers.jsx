@@ -18,10 +18,25 @@ const EMPTY = {
   truck_id: "",
 };
 
+function toFormValues(d) {
+  return {
+    name: d.name,
+    company: d.company ?? "",
+    phone: d.phone ?? "",
+    email: d.email ?? "",
+    status: d.status,
+    cdl_exp: d.cdl_exp ?? "",
+    mc_exp: d.mc_exp ?? "",
+    current_location: d.current_location ?? "",
+    notes: d.notes ?? "",
+    truck_id: d.truck_id ?? "",
+  };
+}
+
 export default function Drivers() {
   const [drivers, setDrivers] = useState([]);
   const [trucks, setTrucks] = useState([]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [editingDriver, setEditingDriver] = useState(null); // null | "new" | driver object
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState("");
   const [statusModalDriver, setStatusModalDriver] = useState(null);
@@ -34,17 +49,32 @@ export default function Drivers() {
 
   useEffect(load, []);
 
-  async function handleAdd(e) {
+  function openAdd() {
+    setForm(EMPTY);
+    setError("");
+    setEditingDriver("new");
+  }
+
+  function openEdit(d) {
+    setForm(toFormValues(d));
+    setError("");
+    setEditingDriver(d);
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
     setError("");
     try {
       const payload = { ...form, truck_id: form.truck_id ? Number(form.truck_id) : null };
-      await api.post("/drivers", payload);
-      setShowAdd(false);
-      setForm(EMPTY);
+      if (editingDriver === "new") {
+        await api.post("/drivers", payload);
+      } else {
+        await api.put(`/drivers/${editingDriver.id}`, payload);
+      }
+      setEditingDriver(null);
       load();
     } catch {
-      setError("Could not add driver — check the fields and try again.");
+      setError("Could not save driver — check the fields and try again.");
     }
   }
 
@@ -58,7 +88,7 @@ export default function Drivers() {
     <div>
       <div className="page-head">
         <h2>Drivers</h2>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>
+        <button className="btn-primary" onClick={openAdd}>
           + Add driver
         </button>
       </div>
@@ -99,7 +129,17 @@ export default function Drivers() {
                 <td>{d.mc_exp || "-"}</td>
                 <td>{d.current_location || "-"}</td>
                 <td className="notes-cell">{d.notes || "-"}</td>
-                <td>
+                <td className="row-actions">
+                  <button
+                    className="btn-icon"
+                    title="Edit"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openEdit(d);
+                    }}
+                  >
+                    ✎
+                  </button>
                   <button
                     className="btn-icon"
                     title="Archive"
@@ -137,9 +177,9 @@ export default function Drivers() {
         />
       )}
 
-      {showAdd && (
-        <Modal title="Add driver" onClose={() => setShowAdd(false)}>
-          <form onSubmit={handleAdd} className="form-grid">
+      {editingDriver && (
+        <Modal title={editingDriver === "new" ? "Add driver" : `Edit driver: ${editingDriver.name}`} onClose={() => setEditingDriver(null)}>
+          <form onSubmit={handleSubmit} className="form-grid">
             <label>
               Name
               <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
@@ -193,7 +233,7 @@ export default function Drivers() {
             </label>
             {error && <div className="form-error span-2">{error}</div>}
             <button className="btn-primary span-2" type="submit">
-              Add driver
+              {editingDriver === "new" ? "Add driver" : "Save changes"}
             </button>
           </form>
         </Modal>
