@@ -1,7 +1,8 @@
-import uuid
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from .. import models, schemas
@@ -9,9 +10,6 @@ from ..database import get_db
 from ..deps import get_current_user
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "uploads"
-UPLOAD_DIR.mkdir(exist_ok=True)
 
 ALLOWED_EXTENSIONS = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".heic"}
 MAX_UPLOAD_BYTES = 15 * 1024 * 1024  # 15 MB
@@ -60,15 +58,15 @@ async def upload_document(
     if len(contents) > MAX_UPLOAD_BYTES:
         raise HTTPException(status_code=400, detail="File too large (max 15 MB)")
 
-    stored_name = f"{uuid.uuid4().hex}{ext}"
-    (UPLOAD_DIR / stored_name).write_bytes(contents)
+    content_type = file.content_type or mimetypes.guess_type(file.filename or "")[0] or "application/octet-stream"
 
     doc = models.Document(
         entity_type=entity_type,
         entity_id=entity_id,
         label=label,
-        file_path=f"/uploads/{stored_name}",
-        original_filename=file.filename or stored_name,
+        content=contents,
+        content_type=content_type,
+        original_filename=file.filename or "document",
         number=number,
         state=state,
         issue_date=issue_date,
@@ -81,13 +79,22 @@ async def upload_document(
     return doc
 
 
+@router.get("/{document_id}/file")
+def download_document(document_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    doc = db.query(models.Document).filter(models.Document.id == document_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return Response(
+        content=doc.content,
+        media_type=doc.content_type,
+        headers={"Content-Disposition": f'inline; filename="{doc.original_filename}"'},
+    )
+
+
 @router.delete("/{document_id}", status_code=204)
 def delete_document(document_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
     doc = db.query(models.Document).filter(models.Document.id == document_id).first()
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    file_path = UPLOAD_DIR / Path(doc.file_path).name
-    if file_path.exists():
-        file_path.unlink()
     db.delete(doc)
     db.commit()

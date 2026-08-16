@@ -159,7 +159,7 @@ class DocumentOut(BaseModel):
     entity_type: str
     entity_id: int
     label: str
-    file_path: str
+    content_type: str
     original_filename: str
     number: str | None
     state: str | None

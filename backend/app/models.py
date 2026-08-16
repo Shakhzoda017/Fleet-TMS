@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -110,7 +110,8 @@ class Document(Base):
     entity_type: Mapped[str] = mapped_column(String, index=True)  # driver | load
     entity_id: Mapped[int] = mapped_column(Integer, index=True)
     label: Mapped[str] = mapped_column(String)  # CDL, Med card, RC, BOL, Pods, Invoice, ...
-    file_path: Mapped[str] = mapped_column(String)
+    content: Mapped[bytes] = mapped_column(LargeBinary)
+    content_type: Mapped[str] = mapped_column(String)
     original_filename: Mapped[str] = mapped_column(String)
     number: Mapped[str | None] = mapped_column(String, nullable=True)
     state: Mapped[str | None] = mapped_column(String, nullable=True)

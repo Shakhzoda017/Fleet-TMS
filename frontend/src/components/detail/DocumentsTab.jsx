@@ -1,10 +1,56 @@
 import { useEffect, useRef, useState } from "react";
 import api from "../../api";
 
-const API_ORIGIN = "http://127.0.0.1:8000";
+function isImageType(contentType) {
+  return (contentType || "").startsWith("image/");
+}
 
-function isImage(filename) {
-  return /\.(png|jpe?g|webp|heic)$/i.test(filename || "");
+function useDocBlobUrl(docId) {
+  const [blobUrl, setBlobUrl] = useState(null);
+
+  useEffect(() => {
+    let url;
+    let cancelled = false;
+    setBlobUrl(null);
+    api.get(`/documents/${docId}/file`, { responseType: "blob" }).then((res) => {
+      if (cancelled) return;
+      url = URL.createObjectURL(res.data);
+      setBlobUrl(url);
+    });
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [docId]);
+
+  return blobUrl;
+}
+
+function DocPreview({ doc, label }) {
+  const blobUrl = useDocBlobUrl(doc.id);
+  if (!blobUrl) return <span className="muted">Loading...</span>;
+  if (isImageType(doc.content_type)) {
+    return (
+      <a href={blobUrl} target="_blank" rel="noreferrer">
+        <img src={blobUrl} alt={label} />
+      </a>
+    );
+  }
+  return (
+    <a href={blobUrl} target="_blank" rel="noreferrer">
+      {doc.original_filename}
+    </a>
+  );
+}
+
+function DocRowLink({ doc }) {
+  const blobUrl = useDocBlobUrl(doc.id);
+  if (!blobUrl) return <span className="muted">{doc.original_filename}</span>;
+  return (
+    <a href={blobUrl} target="_blank" rel="noreferrer">
+      {doc.original_filename}
+    </a>
+  );
 }
 
 export default function DocumentsTab({ entityType, entityId, labelOptions }) {
@@ -75,15 +121,7 @@ export default function DocumentsTab({ entityType, entityId, labelOptions }) {
                 {uploadingLabel === label ? (
                   <span className="muted">Uploading...</span>
                 ) : doc ? (
-                  isImage(doc.original_filename) ? (
-                    <a href={API_ORIGIN + doc.file_path} target="_blank" rel="noreferrer">
-                      <img src={API_ORIGIN + doc.file_path} alt={label} />
-                    </a>
-                  ) : (
-                    <a href={API_ORIGIN + doc.file_path} target="_blank" rel="noreferrer">
-                      {doc.original_filename}
-                    </a>
-                  )
+                  <DocPreview doc={doc} label={label} />
                 ) : (
                   <span className="muted">No document</span>
                 )}
@@ -109,9 +147,7 @@ export default function DocumentsTab({ entityType, entityId, labelOptions }) {
               {extraDocs.map((d) => (
                 <tr key={d.id}>
                   <td>
-                    <a href={API_ORIGIN + d.file_path} target="_blank" rel="noreferrer">
-                      {d.original_filename}
-                    </a>
+                    <DocRowLink doc={d} />
                   </td>
                   <td>{d.label}</td>
                   <td>{new Date(d.uploaded_at + "Z").toLocaleString()}</td>
