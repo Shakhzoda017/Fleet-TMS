@@ -1,0 +1,77 @@
+import datetime
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session, joinedload
+
+from .. import models, schemas
+from ..database import get_db
+from ..deps import get_current_user
+
+router = APIRouter(prefix="/drivers", tags=["drivers"])
+
+
+@router.get("", response_model=list[schemas.DriverOut])
+def list_drivers(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return (
+        db.query(models.Driver)
+        .options(joinedload(models.Driver.truck))
+        .filter(models.Driver.deleted_at.is_(None))
+        .all()
+    )
+
+
+@router.post("", response_model=schemas.DriverOut)
+def create_driver(payload: schemas.DriverCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    driver = models.Driver(**payload.model_dump())
+    db.add(driver)
+    db.commit()
+    db.refresh(driver)
+    return driver
+
+
+@router.get("/archive", response_model=list[schemas.DriverOut])
+def list_archived_drivers(db: Session = Depends(get_db), _=Depends(get_current_user)):
+    return db.query(models.Driver).filter(models.Driver.deleted_at.isnot(None)).all()
+
+
+@router.post("/archive/{driver_id}/restore", response_model=schemas.DriverOut)
+def restore_driver(driver_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    driver = db.query(models.Driver).filter(models.Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    driver.deleted_at = None
+    driver.deleted_by = None
+    db.commit()
+    db.refresh(driver)
+    return driver
+
+
+@router.delete("/archive/{driver_id}", status_code=204)
+def permanently_delete_driver(driver_id: int, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    driver = db.query(models.Driver).filter(models.Driver.id == driver_id).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    db.delete(driver)
+    db.commit()
+
+
+@router.put("/{driver_id}", response_model=schemas.DriverOut)
+def update_driver(driver_id: int, payload: schemas.DriverCreate, db: Session = Depends(get_db), _=Depends(get_current_user)):
+    driver = db.query(models.Driver).filter(models.Driver.id == driver_id, models.Driver.deleted_at.is_(None)).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    for k, v in payload.model_dump().items():
+        setattr(driver, k, v)
+    db.commit()
+    db.refresh(driver)
+    return driver
+
+
+@router.delete("/{driver_id}", status_code=204)
+def delete_driver(driver_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    driver = db.query(models.Driver).filter(models.Driver.id == driver_id, models.Driver.deleted_at.is_(None)).first()
+    if not driver:
+        raise HTTPException(status_code=404, detail="Driver not found")
+    driver.deleted_at = datetime.datetime.utcnow()
+    driver.deleted_by = current_user.username
+    db.commit()

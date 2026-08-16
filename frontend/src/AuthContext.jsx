@@ -1,0 +1,49 @@
+import { createContext, useContext, useEffect, useState } from "react";
+import api from "./api";
+
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("tms_token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    api
+      .get("/auth/me")
+      .then((res) => setUser(res.data))
+      .catch(() => localStorage.removeItem("tms_token"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function login(username, password) {
+    const form = new URLSearchParams();
+    form.append("username", username);
+    form.append("password", password);
+    const res = await api.post("/auth/login", form, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    localStorage.setItem("tms_token", res.data.access_token);
+    const me = await api.get("/auth/me");
+    setUser(me.data);
+  }
+
+  function logout() {
+    localStorage.removeItem("tms_token");
+    setUser(null);
+  }
+
+  return (
+    <AuthContext.Provider value={{ user, loading, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
+}
